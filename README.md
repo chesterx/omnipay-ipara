@@ -1,11 +1,11 @@
 # Omnipay: IPara
 
-**IPara Intl driver for the Omnipay payment processing library**
+**IPara driver for the Omnipay payment processing library**
 
 [Omnipay](https://github.com/thephpleague/omnipay) is a framework agnostic, multi-gateway payment
 processing library for PHP 5.3+. This package trying to implement IPara support for Omnipay.
 
-This is an unofficial version of IPara Intl Integration.
+This is an unofficial version of IPara Integration.
 
 And run composer to update your dependencies:
 
