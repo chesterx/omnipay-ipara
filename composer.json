@@ -1,5 +1,5 @@
 {
-    "name": "chesterx/omnipay-ipara",
+    "name": "omnipay/ipara",
     "type": "library",
     "description": "International IPara driver for the Omnipay payment processing library",
     "keywords": [
