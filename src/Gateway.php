@@ -1,6 +1,6 @@
 <?php
 /**
- * IPara International Gateway
+ * IPara Gateway
  */
 namespace Omnipay\IPara;
 
