@@ -1,0 +1,32 @@
+{
+    "name": "chesterx/omnipay-ipara",
+    "type": "library",
+    "description": "International IPara driver for the Omnipay payment processing library",
+    "keywords": [
+        "gateway",
+        "merchant",
+        "ipara",
+        "pay",
+        "payment",
+        "purchase"
+    ],
+    "homepage": "https://github.com/chesterx/omnipay-ipara",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Sercan Virlan",
+            "email": "sercanvirlan@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "Omnipay\\IparaIntl\\" : "src/" }
+    },
+    "require": {
+        "omnipay/common": "~2.0"
+    },
+    "require-dev": {
+        "omnipay/tests": "~2.0"
+    },
+    "version": "1.0.2",
+    "minimum-stability": "dev"
+}
