@@ -81,27 +81,6 @@ class PurchaseRequest extends AbstractRequest
     }
 
     /**
-     * Get token
-     *
-     * @return string
-     */
-    public function getToken()
-    {
-        return $this->getParameter('token');
-    }
-
-    /**
-     * Set token
-     *
-     * @param string $value
-     * @return string
-     */
-    public function setToken($value)
-    {
-        return $this->setParameter('token', $value);
-    }
-
-    /**
      * Get threeD
      *
      * @return string
@@ -406,6 +385,34 @@ class PurchaseRequest extends AbstractRequest
         return $this->getTestMode() ? $this->getSandboxUrl() : $this->getLiveUrl();
     }
 
+    /**
+     * Get token
+     *
+     * @return string
+     */
+    public function getToken()
+    {
+        $card = $this->getCard();
+        $hash_text =
+            $this->getSecretKey() .
+            $this->getOrderId() .
+            number_format((float)$this->getAmount(), 2, '', '') .
+            $this->getTestMode() .
+            $card->getName() .
+            $card->getNumber() .
+            str_pad($card->getExpiryMonth(), 2, '0', STR_PAD_LEFT) .
+            substr($card->getExpiryYear(), -2) .
+            $card->getCvv() .
+            $card->getFirstName() .
+            $card->getLastName() .
+            $card->getEmail() .
+            $this->getOrderDate();
+
+        $token = $this->getMerchantId() . ":" . base64_encode(sha1($hash_text, true));
+
+        return $token;
+    }
+
     public function getData()
     {
         $xml_data_product_part = "";
@@ -424,40 +431,40 @@ class PurchaseRequest extends AbstractRequest
             }
         }
 
-//$three_d_secure_code_part = "";
-//if ($this->three_d == "true") {
-//    $three_d_secure_code_part = "    <threeDSecureCode>" . $this->three_d_secure_code . "</threeDSecureCode>\n";
-//}
+        $three_d_secure_code_part = "";
+        if ($this->getThreeD() == "true") {
+            $three_d_secure_code_part = "    <threeDSecureCode>" . $this->three_d_secure_code . "</threeDSecureCode>\n";
+        }
 
         $card = $this->getCard();
         $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
             "<auth>\n" .
             "    <threeD>" . $this->getThreeD() . "</threeD>\n" .
             "    <orderId>" . $this->getOrderId() . "</orderId>\n" .
-            "    <amount>" . $this->getAmount() * 100 . "</amount>\n" .
-            "    <cardOwnerName>" . urlencode($card->getName()) . "</cardOwnerName>\n" .
+            "    <amount>" . number_format((float)$this->getAmount(), 2, '', '') . "</amount>\n" .
+            "    <cardOwnerName>" . $card->getName() . "</cardOwnerName>\n" .
             "    <cardNumber>" . $card->getNumber() . "</cardNumber>\n" .
-            "    <cardExpireMonth>" . $card->getExpiryMonth() . "</cardExpireMonth>\n" .
-            "    <cardExpireYear>" . $card->getExpiryYear() . "</cardExpireYear>\n" .
+            "    <cardExpireMonth>" . str_pad($card->getExpiryMonth(), 2, '0', STR_PAD_LEFT) . "</cardExpireMonth>\n" .
+            "    <cardExpireYear>" . substr($card->getExpiryYear(), -2) . "</cardExpireYear>\n" .
             "    <installment>" . $this->getInstallmentCount() . "</installment>\n" .
             "    <cardCvc>" . $card->getCvv() . "</cardCvc>\n" .
             "    <mode>" . $this->getTestMode() . "</mode>\n" .
-//            $three_d_secure_code_part .
+            $three_d_secure_code_part .
             "    <vendorId>29</vendorId>\n" .
             "    <products>\n" .
             $xml_data_product_part .
             "    </products>\n" .
             "    <purchaser>\n" .
-            "        <name>" . urlencode($billingAddress->getFirstName()) . "</name>\n" .
-            "        <surname>" . urlencode($billingAddress->getLastName()) . "</surname>\n" .
+            "        <name>" . $card->getFirstName() . "</name>\n" .
+            "        <surname>" . $card->getLastName() . "</surname>\n" .
             "        <birthDate></birthDate>\n" .
-            "        <email></email>\n" .
+            "        <email>" . $card->getEmail() . "</email>\n" .
             "        <gsmNumber>" . urlencode(mb_strlen($billingAddress->getPhone()) ? $billingAddress->getPhone() : '-') . "</gsmNumber>\n" .
             "        <tcCertificate></tcCertificate>\n" .
             "        <clientIp>" . $this->getClientIp() . "</clientIp>\n" .
             "        <invoiceAddress>\n" .
-            "            <name>" . urlencode($billingAddress->getFirstName()) . "</name>\n" .
-            "            <surname>" . urlencode($billingAddress->getLastName()) . "</surname>\n" .
+            "            <name>" . ($billingAddress->getFirstName()) . "</name>\n" .
+            "            <surname></surname>\n" .
             "            <address>" . urlencode($billingAddress->getAddress()) . "</address>\n" .
             "            <zipcode>" . urlencode($billingAddress->getZipCode()) . "</zipcode>\n" .
             "            <city>" . urlencode($billingAddress->getCity()) . "</city>\n" .
@@ -469,8 +476,8 @@ class PurchaseRequest extends AbstractRequest
             "            <phoneNumber>" . urlencode(mb_strlen($billingAddress->getPhone()) ? $billingAddress->getPhone() : '-') . "</phoneNumber>\n" .
             "        </invoiceAddress>\n" .
             "        <shippingAddress>\n" .
-            "            <name>" . urlencode($shippingAddress->getFirstName()) . "</name>\n" .
-            "            <surname>" . urlencode($shippingAddress->getLastName()) . "</surname>\n" .
+            "            <name>" . ($shippingAddress->getFirstName()) . "</name>\n" .
+            "            <surname></surname>\n" .
             "            <address>" . urlencode($shippingAddress->getAddress()) . "</address>\n" .
             "            <zipcode>" . urlencode($shippingAddress->getZipCode()) . "</zipcode>\n" .
             "            <city>" . urlencode($shippingAddress->getCity()) . "</city>\n" .
@@ -483,51 +490,6 @@ class PurchaseRequest extends AbstractRequest
         return $xml_data;
     }
 
-    public function getData1()
-    {
-        $shippingAddress = $this->getShippingAddress();
-        $card = $this->getCard();
-
-        $timestamp = date("Y-m-d H:i:s");
-        $hash_text =
-        $this->getSecretKey() .
-        $this->getOrderId() .
-        $this->getAmount() * 100 .
-        $this->getTestMode() .
-        $card->getName() .
-        $card->getNumber() .
-        $card->getExpiryMonth() .
-        $card->getExpiryYear() .
-        $card->getCvv() .
-        $shippingAddress->getFirstName() .
-        $shippingAddress->getLastName() .
-        $shippingAddress->getEmail() .
-        $timestamp;
-
-        $token = $this->getMerchantId() . ":" . base64_encode(sha1($hash_text, true));
-
-        $data['orderId'] = $this->getOrderId();
-        $data['amount'] = $this->getAmount() * 100;
-        $data['cardOwnerName'] = $card->getName();
-        $data['cardNumber'] = $card->getNumber();
-        $data['cardExpireMonth'] = $card->getExpiryMonth();
-        $data['cardExpireYear'] = $card->getExpiryYear();
-        $data['installment'] = $this->getInstallmentCount();
-        $data['cardCvc'] = $card->getCvv();
-        $data['mode'] = $this->getTestMode();
-        $data['purchaserName'] = $shippingAddress->getFirstName();
-        $data['purchaserSurname'] = $shippingAddress->getLastName();
-        $data['purchaserEmail'] = $shippingAddress->getEmail();
-        $data['successUrl'] = $this->getSuccessUrl();
-        $data['failureUrl'] = $this->getGatewayUrl();
-        $data['echo'] = "";
-        $data['version'] = "1.0";
-        $data['transactionDate'] = $timestamp;
-        $data['token'] = $token;
-
-        return $data;
-    }
-
     /**
      * Send data
      *
@@ -536,103 +498,15 @@ class PurchaseRequest extends AbstractRequest
      */
     public function sendData($data)
     {
-        $headers = array(
+        $headers = [
             'Content-Type'  => 'application/xml; charset=utf-8',
-            'transactionDate'  => date("Y-m-d H:i:s"),
+            'transactionDate'  => $this->getOrderDate(),
             'version'  => "1.0",
             'token'  => $this->getToken()
-        );
+        ];
 
         $httpResponse = $this->httpClient->post($this->getGatewayUrl(), $headers, $data)->send();
         $xml = simplexml_load_string($httpResponse->getBody()->__toString());
         return $this->response = new PurchaseResponse($this, $xml, $this->getGatewayUrl());
-    }
-
-    /**
-     * Encodes an entire array recursevly in UTF-8.
-     *
-     * @param   array $arrToEncode The array to encode.
-     * @return  array
-     */
-    public function utf8izeArray(array $arrToEncode)
-    {
-        array_walk_recursive($arrToEncode, array($this, 'utf8izeArrayRecFunction'));
-        return $arrToEncode;
-    }
-
-    /**
-     * Instead of using closure for 5.2 compatibility.
-     *
-     * @param mixed $item Value in the array to apply utf8izeArray() upon it.
-     */
-    protected function utf8izeArrayRecFunction(&$item)
-    {
-        if (!is_array($item)) {
-            $item = $this->utf8izeString($item);
-        }
-    }
-
-    /**
-     * Encodes a string in UTF-8.
-     *
-     * @param   string $strValue The string to encode.
-     * @return  string            The string UTF-8 encoded.
-     */
-    public function utf8izeString($strValue)
-    {
-        $returnValue = strval($strValue);
-        if (!mb_check_encoding($returnValue, 'UTF-8')) {
-            $returnValue = mb_convert_encoding($returnValue, 'UTF-8', mb_detect_encoding($returnValue));
-        }
-
-        return $returnValue;
-    }
-
-    /**
-     * Generate order hash
-     *
-     * @param array $data
-     * @return string
-     */
-    protected function generateHash(array $data)
-    {
-        return $this->hmacMd5($data);
-    }
-
-    /**
-     * Apply HMAC_MD5.
-     *
-     * @param   array $arrData Array with data, can contain subarrays.
-     * @return string HMAC_MD5 signature.
-     */
-    public function hmacMd5(array $arrData)
-    {
-        ksort($arrData);
-        $secretKey = $this->getSecretKey();
-        $referenceObj = new \stdClass;
-        $referenceObj->strData = '';
-
-        array_walk_recursive($arrData, array($this, 'hmacMd5RecFunction'), $referenceObj);
-
-        if (version_compare(phpversion(), '5.1.2', '>=') === true) {
-            return hash_hmac('md5', $referenceObj->strData, $secretKey);
-        }
-
-        return bin2hex(mhash(MHASH_MD5, $referenceObj->strData, $secretKey));
-    }
-
-    /**
-     * Instead of using closure for 5.2 compatibility.
-     *
-     * @param mixed $item Value in the array to apply utf8izeArray() upon it.
-     * @param mixed $key Value 's key.
-     * @param \stdClass $obj Object where string to hash will be stored.
-     */
-    protected function hmacMd5RecFunction($item, $key, \stdClass $obj)
-    {
-        if (!is_array($item)) {
-            $obj->strData .= strlen($item); //mb_strlen(strval($item), 'UTF-8');
-            $obj->strData .= strval($item);
-        }
     }
 }

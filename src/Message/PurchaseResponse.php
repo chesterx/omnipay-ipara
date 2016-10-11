@@ -42,9 +42,24 @@ class PurchaseResponse extends AbstractResponse implements RedirectResponseInter
     {
         parent::__construct($request, $data);
 
-        $this->data = $data;
+        $this->data = $this->xml2array($data);
+
         $this->redirectUrl = $redirectUrl;
     }
+
+    /**
+     * Convert xml to array
+     *
+     * @return Array
+     */
+    function xml2array ( $xmlObject, $out = array () )
+    {
+        foreach ( (array) $xmlObject as $index => $node )
+            $out[$index] = ( is_object ( $node ) ) ? xml2array ( $node ) : $node;
+
+        return $out;
+    }
+
 
     /**
      * Get the initiating request object.
@@ -63,7 +78,7 @@ class PurchaseResponse extends AbstractResponse implements RedirectResponseInter
      */
     public function isSuccessful()
     {
-        if($this->data->RETURN_CODE != '3DS_ENROLLED' && $this->data->STATUS == 'SUCCESS') {
+        if($this->data['result'] == 1) {
             return true;
         }
 
@@ -109,9 +124,9 @@ class PurchaseResponse extends AbstractResponse implements RedirectResponseInter
     public function getMessage()
     {
         return [
-            'status' => (string) $this->data->STATUS[0],
-            'return_code' => (string) $this->data->RETURN_CODE[0],
-            'return_message' => (string) $this->data->RETURN_MESSAGE[0],
+            'status' => (string) $this->data['result'],
+            'return_code' => (string) $this->data['errorCode'],
+            'return_message' => (string) $this->data['errorMessage'],
         ];
     }
 
