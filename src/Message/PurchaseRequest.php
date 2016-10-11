@@ -81,6 +81,48 @@ class PurchaseRequest extends AbstractRequest
     }
 
     /**
+     * Get token
+     *
+     * @return string
+     */
+    public function getToken()
+    {
+        return $this->getParameter('token');
+    }
+
+    /**
+     * Set token
+     *
+     * @param string $value
+     * @return string
+     */
+    public function setToken($value)
+    {
+        return $this->setParameter('token', $value);
+    }
+
+    /**
+     * Get threeD
+     *
+     * @return string
+     */
+    public function getThreeD()
+    {
+        return $this->getParameter('threeD');
+    }
+
+    /**
+     * Set threeD
+     *
+     * @param string $value
+     * @return string
+     */
+    public function setThreeD($value)
+    {
+        return $this->setParameter('threeD', $value);
+    }
+
+    /**
      * Get secret key
      *
      * @return string
@@ -364,81 +406,124 @@ class PurchaseRequest extends AbstractRequest
         return $this->getTestMode() ? $this->getSandboxUrl() : $this->getLiveUrl();
     }
 
-    /**
-     * Retrieve data to send to PayU.
-     */
     public function getData()
     {
+        $xml_data_product_part = "";
         $billingAddress = $this->getBillingAddress();
         $shippingAddress = $this->getShippingAddress();
-
-        $data['MERCHANT'] = $this->getMerchantId();
-        $data['ORDER_REF'] = $this->getOrderId();
-        $data['ORDER_DATE'] = gmdate('Y-m-d H:i:s');
 
         $items = $this->getItems();
         if (!empty($items)) {
             foreach ($items as $key => $item) {
-                $data["ORDER_PNAME[$key]"]      = $item->getName();
-                $data["ORDER_PCODE[$key]"]      = $item->getSku();
-                $data["ORDER_PINFO[$key]"]      = $item->getDescription();
-                $data["ORDER_PRICE[$key]"]      = sprintf('%.2F', $item->getPrice());
-                $data["ORDER_QTY[$key]"]        = intval($item->getQuantity());
-                $data["ORDER_VAT[$key]"]        = sprintf('%.2F', $item->getTaxPercent());
-                $data["ORDER_PRICE_TYPE[$key]"] = 'GROSS';
+                $xml_data_product_part .= "<product>\n" .
+                    "	<productCode>" . urlencode($item->getSku()) . "</productCode>\n" .
+                    "	<productName>" . urlencode($item->getName()) . "</productName>\n" .
+                    "	<quantity>" . $item->getQuantity() . "</quantity>\n" .
+                    "	<price>" . number_format((float)sprintf('%.2F', $item->getPrice()), 2, '', '') . "</price>\n" .
+                    "</product>\n";
             }
         }
 
-        $data['BILL_FNAME'] = $billingAddress->getFirstName();
-        $data['BILL_LNAME'] = $billingAddress->getLastName();
-        $data['BILL_EMAIL'] = $billingAddress->getEmail();
-        if (mb_strlen($billingAddress->getCompany())) {
-            $data['BILL_COMPANY'] = $billingAddress->getCompany();
-        }
-
-        $data['BILL_PHONE']         = mb_strlen($billingAddress->getPhone()) ? $billingAddress->getPhone() : '-';
-        $data['BILL_ADDRESS']       = $billingAddress->getAddress();
-        $data['BILL_ZIPCODE']       = $billingAddress->getZipCode();
-        $data['BILL_STATE']         = $billingAddress->getState();
-        $data['BILL_CITY']          = $billingAddress->getCity();
-        $data['BILL_COUNTRYCODE']   = $billingAddress->getCountryCode();
-        $data['DELIVERY_FNAME']     = $shippingAddress->getFirstName();
-        $data['DELIVERY_LNAME']     = $shippingAddress->getLastName();
-        $data['DELIVERY_EMAIL']     = $shippingAddress->getEmail();
-        if (mb_strlen($shippingAddress->getCompany())) {
-            $data['DELIVERY_COMPANY'] = $shippingAddress->getCompany();
-        }
-        $data['DELIVERY_PHONE']         = mb_strlen($shippingAddress->getPhone()) ? $shippingAddress->getPhone() : '-';
-        $data['DELIVERY_ADDRESS']       = $shippingAddress->getAddress();
-        $data['DELIVERY_ZIPCODE']       = $shippingAddress->getZipCode();
-        $data['DELIVERY_STATE']         = $shippingAddress->getState();
-        $data['DELIVERY_CITY']          = $shippingAddress->getCity();
-        $data['DELIVERY_COUNTRYCODE']   = $shippingAddress->getCountryCode();
+//$three_d_secure_code_part = "";
+//if ($this->three_d == "true") {
+//    $three_d_secure_code_part = "    <threeDSecureCode>" . $this->three_d_secure_code . "</threeDSecureCode>\n";
+//}
 
         $card = $this->getCard();
-        $data['SELECTED_INSTALLMENTS_NUMBER']   = $this->getInstallmentCount();
-        $data['CC_NUMBER']                      = $card->getNumber();
-        $data['EXP_MONTH']                      = $card->getExpiryMonth();
-        $data['EXP_YEAR']                       = $card->getExpiryYear();
-        $data['CC_CVV']                         = $card->getCvv();
-        $data['CC_OWNER']                       = $card->getName();
+        $xml_data = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" .
+            "<auth>\n" .
+            "    <threeD>" . $this->getThreeD() . "</threeD>\n" .
+            "    <orderId>" . $this->getOrderId() . "</orderId>\n" .
+            "    <amount>" . $this->getAmount() * 100 . "</amount>\n" .
+            "    <cardOwnerName>" . urlencode($card->getName()) . "</cardOwnerName>\n" .
+            "    <cardNumber>" . $card->getNumber() . "</cardNumber>\n" .
+            "    <cardExpireMonth>" . $card->getExpiryMonth() . "</cardExpireMonth>\n" .
+            "    <cardExpireYear>" . $card->getExpiryYear() . "</cardExpireYear>\n" .
+            "    <installment>" . $this->getInstallmentCount() . "</installment>\n" .
+            "    <cardCvc>" . $card->getCvv() . "</cardCvc>\n" .
+            "    <mode>" . $this->getTestMode() . "</mode>\n" .
+//            $three_d_secure_code_part .
+            "    <vendorId>29</vendorId>\n" .
+            "    <products>\n" .
+            $xml_data_product_part .
+            "    </products>\n" .
+            "    <purchaser>\n" .
+            "        <name>" . urlencode($billingAddress->getFirstName()) . "</name>\n" .
+            "        <surname>" . urlencode($billingAddress->getLastName()) . "</surname>\n" .
+            "        <birthDate></birthDate>\n" .
+            "        <email></email>\n" .
+            "        <gsmNumber>" . urlencode(mb_strlen($billingAddress->getPhone()) ? $billingAddress->getPhone() : '-') . "</gsmNumber>\n" .
+            "        <tcCertificate></tcCertificate>\n" .
+            "        <clientIp>" . $this->getClientIp() . "</clientIp>\n" .
+            "        <invoiceAddress>\n" .
+            "            <name>" . urlencode($billingAddress->getFirstName()) . "</name>\n" .
+            "            <surname>" . urlencode($billingAddress->getLastName()) . "</surname>\n" .
+            "            <address>" . urlencode($billingAddress->getAddress()) . "</address>\n" .
+            "            <zipcode>" . urlencode($billingAddress->getZipCode()) . "</zipcode>\n" .
+            "            <city>" . urlencode($billingAddress->getCity()) . "</city>\n" .
+            "            <tcCertificate></tcCertificate>\n" .
+            "            <country>" . urlencode($billingAddress->getCountryCode()) . "</country>\n" .
+            "            <taxNumber></taxNumber>\n" .
+            "            <taxOffice></taxOffice>\n" .
+            "            <companyName>" . $billingAddress->getCompany() . "</companyName>\n" .
+            "            <phoneNumber>" . urlencode(mb_strlen($billingAddress->getPhone()) ? $billingAddress->getPhone() : '-') . "</phoneNumber>\n" .
+            "        </invoiceAddress>\n" .
+            "        <shippingAddress>\n" .
+            "            <name>" . urlencode($shippingAddress->getFirstName()) . "</name>\n" .
+            "            <surname>" . urlencode($shippingAddress->getLastName()) . "</surname>\n" .
+            "            <address>" . urlencode($shippingAddress->getAddress()) . "</address>\n" .
+            "            <zipcode>" . urlencode($shippingAddress->getZipCode()) . "</zipcode>\n" .
+            "            <city>" . urlencode($shippingAddress->getCity()) . "</city>\n" .
+            "            <country>" . urlencode($shippingAddress->getCountryCode()) . "</country>\n" .
+            "            <phoneNumber>" . urlencode(mb_strlen($shippingAddress->getPhone()) ? $shippingAddress->getPhone() : '-') . "</phoneNumber>\n" .
+            "        </shippingAddress>\n" .
+            "    </purchaser>\n" .
+            "</auth>";
 
-        /* additional info */
-        $data['BACK_REF'] = str_replace('{{orderid}}', $this->getOrderId(), $this->getSuccessUrl());
-        $data['CLIENT_IP'] = $this->getClientIp();
+        return $xml_data;
+    }
 
-        $data['ORDER_SHIPPING'] = sprintf('%.2F', $this->getShippingAmount());
-        $data['PRICES_CURRENCY'] = $this->getCurrency();
+    public function getData1()
+    {
+        $shippingAddress = $this->getShippingAddress();
+        $card = $this->getCard();
 
-        $data['DISCOUNT'] = sprintf('%.2F', abs($this->getDiscountAmount()));
-        $data['TESTORDER'] = $this->getTestMode() ? 'TRUE' : 'FALSE';
+        $timestamp = date("Y-m-d H:i:s");
+        $hash_text =
+        $this->getSecretKey() .
+        $this->getOrderId() .
+        $this->getAmount() * 100 .
+        $this->getTestMode() .
+        $card->getName() .
+        $card->getNumber() .
+        $card->getExpiryMonth() .
+        $card->getExpiryYear() .
+        $card->getCvv() .
+        $shippingAddress->getFirstName() .
+        $shippingAddress->getLastName() .
+        $shippingAddress->getEmail() .
+        $timestamp;
 
-        $data['PAY_METHOD'] = Gateway::IPara_METHOD_CCVISAMC;
-        $data['LANGUAGE'] = $this->httpRequest->getLocale();
+        $token = $this->getMerchantId() . ":" . base64_encode(sha1($hash_text, true));
 
-        $data = $this->utf8izeArray($data);
-
-        $data['ORDER_HASH'] = $this->hmacMd5($data);
+        $data['orderId'] = $this->getOrderId();
+        $data['amount'] = $this->getAmount() * 100;
+        $data['cardOwnerName'] = $card->getName();
+        $data['cardNumber'] = $card->getNumber();
+        $data['cardExpireMonth'] = $card->getExpiryMonth();
+        $data['cardExpireYear'] = $card->getExpiryYear();
+        $data['installment'] = $this->getInstallmentCount();
+        $data['cardCvc'] = $card->getCvv();
+        $data['mode'] = $this->getTestMode();
+        $data['purchaserName'] = $shippingAddress->getFirstName();
+        $data['purchaserSurname'] = $shippingAddress->getLastName();
+        $data['purchaserEmail'] = $shippingAddress->getEmail();
+        $data['successUrl'] = $this->getSuccessUrl();
+        $data['failureUrl'] = $this->getGatewayUrl();
+        $data['echo'] = "";
+        $data['version'] = "1.0";
+        $data['transactionDate'] = $timestamp;
+        $data['token'] = $token;
 
         return $data;
     }
@@ -451,7 +536,14 @@ class PurchaseRequest extends AbstractRequest
      */
     public function sendData($data)
     {
-        $httpResponse = $this->httpClient->post($this->getGatewayUrl(), null, $data)->send();
+        $headers = array(
+            'Content-Type'  => 'application/xml; charset=utf-8',
+            'transactionDate'  => date("Y-m-d H:i:s"),
+            'version'  => "1.0",
+            'token'  => $this->getToken()
+        );
+
+        $httpResponse = $this->httpClient->post($this->getGatewayUrl(), $headers, $data)->send();
         $xml = simplexml_load_string($httpResponse->getBody()->__toString());
         return $this->response = new PurchaseResponse($this, $xml, $this->getGatewayUrl());
     }
