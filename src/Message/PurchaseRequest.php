@@ -17,6 +17,8 @@ use Omnipay\IPara\Omnipay\Common\Item;
  */
 class PurchaseRequest extends AbstractRequest
 {
+
+    public $threeDSecureUrl = "https://www.ipara.com/3dgate";
     /**
      * Get order id
      *
@@ -99,6 +101,27 @@ class PurchaseRequest extends AbstractRequest
     public function setThreeD($value)
     {
         return $this->setParameter('threeD', $value);
+    }
+
+    /**
+     * Get threeDSecureCode
+     *
+     * @return string
+     */
+    public function getThreeDSecureCode()
+    {
+        return $this->getParameter('threeDSecureCode');
+    }
+
+    /**
+     * Set threeDSecureCode
+     *
+     * @param string $value
+     * @return string
+     */
+    public function setThreeDSecureCode($value)
+    {
+        return $this->setParameter('threeDSecureCode', $value);
     }
 
     /**
@@ -355,6 +378,28 @@ class PurchaseRequest extends AbstractRequest
     }
 
     /**
+     * Get the request echo
+     *
+     * @return string
+     */
+    public function getEcho()
+    {
+        return $this->getParameter('echo');
+    }
+
+    /**
+     * Sets the request echo
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setEcho($value)
+    {
+        return $this->setParameter('echo', $value);
+    }
+
+
+    /**
      * Get the request success URL
      *
      * @return string
@@ -373,6 +418,48 @@ class PurchaseRequest extends AbstractRequest
     public function setSuccessUrl($value)
     {
         return $this->setParameter('successUrl', $value);
+    }
+
+    /**
+     * Get the request failure URL
+     *
+     * @return string
+     */
+    public function getFailureUrl()
+    {
+        return $this->getParameter('failureUrl');
+    }
+
+    /**
+     * Sets the request failure URL
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setFailureUrl($value)
+    {
+        return $this->setParameter('failureUrl', $value);
+    }
+
+    /**
+     * Get the request return URL
+     *
+     * @return string
+     */
+    public function getReturnUrl()
+    {
+        return $this->getParameter('returnUrl');
+    }
+
+    /**
+     * Sets the request return URL
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setReturnUrl($value)
+    {
+        return $this->setParameter('returnUrl', $value);
     }
 
     /**
@@ -433,7 +520,7 @@ class PurchaseRequest extends AbstractRequest
 
         $three_d_secure_code_part = "";
         if ($this->getThreeD() == "true") {
-            $three_d_secure_code_part = "    <threeDSecureCode>" . $this->three_d_secure_code . "</threeDSecureCode>\n";
+            $three_d_secure_code_part = "    <threeDSecureCode>" . $this->getThreeDSecureCode() . "</threeDSecureCode>\n";
         }
 
         $card = $this->getCard();
@@ -490,6 +577,34 @@ class PurchaseRequest extends AbstractRequest
         return $xml_data;
     }
 
+    public function getRedirectData()
+    {
+        $card = $this->getCard();
+        $data = new \stdClass();
+        $data->RETURN_CODE = '3DS_ENROLLED';
+        $data->URL_3DS = $this->threeDSecureUrl;
+        $data->orderId = $this->getOrderId();
+        $data->amount = number_format((float)$this->getAmount(), 2, '', '');
+        $data->cardOwnerName = $card->getName();
+        $data->cardNumber = $card->getNumber();
+        $data->cardExpireMonth = str_pad($card->getExpiryMonth(), 2, '0', STR_PAD_LEFT);
+        $data->cardExpireYear = substr($card->getExpiryYear(), -2);
+        $data->installment = $this->getInstallmentCount();
+        $data->cardCvc = $card->getCvv();
+        $data->mode = $this->getTestMode();
+        $data->purchaserName = $card->getFirstName();
+        $data->purchaserSurname = $card->getLastName();
+        $data->purchaserEmail = $card->getEmail();
+        $data->successUrl = $this->getSuccessUrl();
+        $data->failureUrl = $this->getFailureUrl();
+        $data->echo = $this->getEcho();
+        $data->version = '1.0';
+        $data->transactionDate = $this->getOrderDate();
+        $data->token = $this->getToken();
+
+        return $data;
+    }
+
     /**
      * Send data
      *
@@ -498,15 +613,20 @@ class PurchaseRequest extends AbstractRequest
      */
     public function sendData($data)
     {
-        $headers = [
-            'Content-Type'  => 'application/xml; charset=utf-8',
-            'transactionDate'  => $this->getOrderDate(),
-            'version'  => "1.0",
-            'token'  => $this->getToken()
-        ];
+        if($this->getThreeD() && !$this->getThreeDSecureCode()) {
+            $xml = $this->getRedirectData();
+            return $this->response = new PurchaseResponse($this, $xml, $this->threeDSecureUrl);
+        } else {
+            $headers = [
+                'Content-Type' => 'application/xml; charset=utf-8',
+                'transactionDate' => $this->getOrderDate(),
+                'version' => "1.0",
+                'token' => $this->getToken()
+            ];
 
-        $httpResponse = $this->httpClient->post($this->getGatewayUrl(), $headers, $data)->send();
-        $xml = simplexml_load_string($httpResponse->getBody()->__toString());
-        return $this->response = new PurchaseResponse($this, $xml, $this->getGatewayUrl());
+            $httpResponse = $this->httpClient->post($this->getGatewayUrl(), $headers, $data)->send();
+            $xml = simplexml_load_string($httpResponse->getBody()->__toString());
+            return $this->response = new PurchaseResponse($this, $xml, $this->getGatewayUrl());
+        }
     }
 }
